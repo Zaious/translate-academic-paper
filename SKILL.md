@@ -29,7 +29,8 @@ description: |
 差別只在**語域**——技術論文求精確簡潔；人文論說文求思辨流暢、保留修辭節奏（見 methodology.md）。
 
 ```
-安裝依賴： pip install pymupdf pillow
+安裝依賴： pip install pymupdf pillow          # 核心
+          pip install python-docx             # 選用：要輸出 .docx 才需要
 ```
 
 ### 執行環境與廠商中立
@@ -178,14 +179,23 @@ python scripts/render_equations.py paper.pdf --manual 5:220-260 --out build/eq_x
 
 ---
 
-## Phase 5：合併全文
+## Phase 5：合併與輸出
+
+**成品建議輸出到獨立目錄（如 `out/`），與工作檔 `build/` 分開。**
 
 ```bash
-python scripts/combine_paper.py --build build --out "build/論文_中譯.html" \
+# HTML：三態切換（純中/對照/純原文）、浮動 TOC、全內嵌、內建列印樣式
+python scripts/combine_paper.py --build build --out "out/論文_中譯.html" \
     --title "論文標題 — 中譯" --default-view both
+
+# （選用）Word .docx：docx 無切換，用 --view 選版本（需 pip install python-docx）
+python scripts/export_docx.py --build build --out "out/論文_中譯.docx" --view zh
+python scripts/export_docx.py --build build --out "out/論文_對照.docx" --view both
 ```
 
-輸出單一自包含 HTML：頂部三態切換（純中文/中英對照/純原文）、浮動 TOC、全部內嵌。
+- **樣式由 combine 內建**（單一真相）：`.pgmark/.poem/.en/figure/.eq/.abstract` 等元件
+  不論出現在哪一節都有樣式；section 檔的 `<style>` 只為單獨預覽用。要客製用 `--css`。
+- **列印**：切到想要的檢視再列印，`@media print` 會隱藏 TOC/工具列、避免段落被切斷。
 
 ---
 
@@ -219,7 +229,8 @@ python scripts/combine_paper.py --build build --out "build/論文_中譯.html" \
 | `extract_structure.py` | Phase 2：欄位還原、閱讀順序正確的原文 + 結構標記 |
 | `place_figures.py` | Phase 3：caption 錨點擷取圖表並注入 |
 | `render_equations.py` | Phase 4：編號/手動公式原圖截圖內嵌 |
-| `combine_paper.py` | Phase 5：合併 + 三態檢視切換 + TOC |
+| `combine_paper.py` | Phase 5：合併 + 三態檢視切換 + TOC + 列印樣式（內建正典 CSS）|
+| `export_docx.py` | Phase 5（選用）：另外輸出 Word .docx（--view zh/both/orig，需 python-docx）|
 | `paper_utils.py` | 共用函式（被上面 import）|
 
 ## 詳細參考資料

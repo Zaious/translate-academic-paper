@@ -77,18 +77,29 @@ python scripts/render_equations.py "TARGET.pdf" --auto --inject build/secXX.html
 ```
 純文字的人文書（如 Spencer《教育論》）沒有圖表公式，跳過本步。
 
-## 6. 合併
+## 6. 合併與輸出
+
+**建議把成品輸出到獨立目錄**（如 `out/`），與工作檔 `build/` 分開，避免混雜。
 
 ```bash
-python scripts/combine_paper.py --build build --out "build/成品_中譯.html" \
+# 單一自包含 HTML（三態切換 / 浮動 TOC / 全內嵌 / 內建列印樣式）
+python scripts/combine_paper.py --build build --out "out/成品_中譯.html" \
     --title "書名 — 中譯" --default-view both
+
+# （選用）另外輸出 Word .docx —— docx 無切換，用 --view 選版本
+python scripts/export_docx.py --build build --out "out/成品_中譯.docx"   --view zh
+python scripts/export_docx.py --build build --out "out/成品_對照.docx"   --view both
 ```
-產出單一自包含 HTML：頂部三態切換（純中文 / 中英對照 / 純原文）、浮動 TOC、全內嵌。
+
+- 樣式由 `combine_paper.py` 內建（單一真相），section 檔不必自帶元件 CSS。
+- 列印：在瀏覽器切到想要的檢視再列印，`@media print` 會自動隱藏 TOC/工具列、避免段落被切斷。
+- docx 需要 `pip install python-docx`。
 
 ## 每節交付檢查
 
 - [ ] `build/meta.html` 書目 header 已建（作者/單位/出處/年份/DOI/ISBN）
 - [ ] `.para/.zh/.orig` 結構完整，三態切換能運作
+- [ ] 換頁 `pgmark` **逐頁連續、無跳號**（放在該頁內容開始處）
 - [ ] 換頁 `pgmark` 標記齊全，可回查原書頁碼
 - [ ] 術語與 `glossary.md` 一致（無同詞多譯）
 - [ ] 數字、專有名詞、引用標記無誤；參考文獻原樣未翻

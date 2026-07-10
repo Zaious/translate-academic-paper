@@ -16,7 +16,8 @@
 - **術語詞庫**：先查標準譯法（台灣繁中慣例）再鎖定，全文一致；模型/資料集專名保留原文。
 - **圖表 / 公式**：caption 錨點擷取圖表；公式以原圖截圖內嵌，保證與原文一致。
 - **書目 header**：論文（作者/單位/期刊·卷期/DOI）與專著（出版社/出版地/版次/ISBN）皆可。
-- **三態檢視**：一份 HTML，純中 / 對照 / 純原文即時切換。
+- **三態檢視**：一份 HTML，純中 / 對照 / 純原文即時切換；內建列印樣式。
+- **多格式輸出**：自包含 HTML 為主，另可選擇輸出 Word `.docx`（純中 / 對照 / 純原文）。
 
 ## 快速開始
 
@@ -29,8 +30,11 @@ python scripts/inspect_pdf.py "TARGET.pdf"
 # 2) 依 references/runbook.md 逐段翻成 build/secNN.html（翻譯單位是「段落」）
 #    書目寫成 build/meta.html
 
-# 3) 合併成單一 HTML
-python scripts/combine_paper.py --build build --out "成品_中譯.html" --default-view both
+# 3) 合併成單一 HTML（建議輸出到 out/，與 build/ 分開）
+python scripts/combine_paper.py --build build --out "out/成品_中譯.html" --default-view both
+
+# 3b) （選用）另外輸出 Word .docx
+python scripts/export_docx.py --build build --out "out/成品_中譯.docx" --view zh
 ```
 
 完整流程見 [`SKILL.md`](SKILL.md)；照著跑的操作手冊見 [`references/runbook.md`](references/runbook.md)。

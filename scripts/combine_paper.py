@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from paper_utils import extract_sections, extract_css, extract_title
+from paper_utils import extract_sections
 
 TOOLBAR = """
 <div id="viewbar">
@@ -51,6 +51,76 @@ TOOLBAR = """
 </script>
 """
 
+BASE_CSS = """
+  /* ── 正典樣式（combine 擁有的單一真相；section 檔不必自帶元件樣式）── */
+  :root {
+    --ink:#1d1c1a; --muted:#7c766c; --rule:#e4ded3; --accent:#2f5b8a;
+    --bg:#faf8f3; --card:#fffdf8; --tag:#eef3f8;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Noto Serif TC","Source Han Serif TC","PMingLiU",serif;
+    line-height:1.9; font-size:16.5px;
+  }
+  .sec { margin-bottom:44px; }
+  h1 { font-family:"Noto Sans TC",sans-serif; font-size:26px; font-weight:900; margin:.2em 0 .5em; }
+  h2 { font-family:"Noto Sans TC",sans-serif; font-size:19px; font-weight:800;
+       color:var(--accent); margin:28px 0 8px; }
+  h3 { font-family:"Noto Sans TC",sans-serif; font-size:16px; font-weight:700; margin:20px 0 4px; }
+  .booktitle { font-family:"Noto Sans TC",sans-serif; font-size:14px; font-weight:700;
+    color:var(--muted); letter-spacing:.22em; margin:0 0 4px; }
+  .chapno { font-family:"Noto Sans TC",sans-serif; font-size:13px; color:var(--accent);
+    letter-spacing:.28em; margin:8px 0 24px; }
+
+  /* 術語首見附原文 */
+  .en { font-family:"Noto Sans TC",sans-serif; font-size:.82em; font-weight:400;
+        color:var(--muted); margin-left:1px; }
+  .en::before { content:"（"; } .en::after { content:"）"; }
+
+  .para { margin:0 0 18px; }
+
+  /* 換頁標記：置於「該頁內容開始處」，逐頁不跳號 */
+  .pgmark { display:block; text-align:center; color:var(--muted);
+    font-family:"Noto Sans TC",sans-serif; font-size:11.5px; letter-spacing:.22em;
+    padding:5px 0; margin:24px 0; border-top:1px dashed var(--rule);
+    border-bottom:1px dashed var(--rule); }
+
+  /* 詩歌 / 引詩：中英可並列 */
+  .poem { margin:18px 0; padding-left:2em; line-height:1.7; }
+  .poem .stanza + .stanza { margin-top:10px; }
+  .poem .line { display:block; }
+  .poem .zh { color:var(--ink); }
+  .poem .orig { color:var(--muted); font-style:italic; }
+  body.view-zh   .poem .orig { display:none; }
+  body.view-orig .poem .zh   { display:none; }
+
+  /* 摘要 */
+  .abstract { background:var(--tag); border-radius:8px; padding:16px 20px; margin:18px 0; }
+  .abstract h2 { margin-top:0; }
+
+  /* 圖表 */
+  figure.fig { margin:22px 0; text-align:center; }
+  figure.fig .fig-img { max-width:100%; height:auto; border-radius:6px;
+    box-shadow:0 1px 10px rgba(0,0,0,.12); }
+  figure.fig figcaption { font-size:13px; color:var(--muted); margin-top:8px;
+    font-family:"Noto Sans TC",sans-serif; line-height:1.6; }
+
+  /* 公式（原圖截圖）*/
+  .eq { display:block; text-align:center; margin:18px 0; }
+  .eq .eq-img { max-width:92%; height:auto; }
+  .eq .eq-img.eq-inline { display:inline; vertical-align:middle; max-height:1.4em; margin:0 2px; }
+
+  /* 資料表 */
+  table.data { border-collapse:collapse; width:100%; font-size:14px; margin:14px 0; }
+  table.data th, table.data td { border:1px solid var(--rule); padding:6px 10px; text-align:left; }
+
+  /* 參考文獻（不翻，原樣）*/
+  .references { font-size:13.5px; line-height:1.7; }
+  .references .ref { padding-left:2em; text-indent:-2em; margin-bottom:6px;
+    font-family:"Noto Sans TC",sans-serif; color:#444; }
+"""
+
 LAYOUT_CSS = """
   /* ── 全文佈局 ── */
   body { display:flex; gap:0; }
@@ -68,7 +138,7 @@ LAYOUT_CSS = """
   #toc a.lvl2 { padding-left:20px; font-size:12px; color:var(--muted); }
   #toc a:hover { background:var(--rule); }
   .main-content { flex:1; overflow-y:auto; }
-  .wrap { max-width:820px; margin:0 auto; padding:64px 28px 96px; }
+  .wrap { max-width:1200px; margin:0 auto; padding:64px 28px 96px; }
   h1[id],h2[id],h3[id] { scroll-margin-top:70px; }
 
   /* ── 三態檢視切換 ── */
@@ -91,12 +161,14 @@ LAYOUT_CSS = """
   body.view-zh  .para .orig { display:none; }
   /* 純原文：藏中文 */
   body.view-orig .para .zh { display:none; }
+  body.view-orig .para .orig { display:block; }
   /* 對照：左右並排 */
   body.view-both .para {
     display:grid; grid-template-columns:1fr 1fr; gap:28px;
     align-items:start; margin:0 0 4px;
   }
   body.view-both .para .orig {
+    display:block;
     color:var(--muted); font-size:.94em; border-left:2px solid var(--rule);
     padding-left:16px;
   }
@@ -140,6 +212,19 @@ LAYOUT_CSS = """
   }
   .credit a { color:var(--accent); text-decoration:none; }
   .credit a:hover { text-decoration:underline; }
+
+  /* ── 列印：以目前檢視狀態列印，隱藏 TOC/工具列，避免段落被切斷 ── */
+  @media print {
+    #toc, #viewbar { display:none !important; }
+    body { display:block; }
+    .main-content { overflow:visible; }
+    .wrap { max-width:100%; padding:0 12mm; }
+    .para, .poem, figure.fig, .docmeta, .references .ref { break-inside:avoid; }
+    h1, h2, h3 { break-after:avoid; }
+    .credit { break-before:avoid; }
+    a { color:inherit; text-decoration:none; }
+    body.view-both .para { gap:16px; }
+  }
 """
 
 CREDIT = """
@@ -190,7 +275,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--title", default="論文中譯")
     ap.add_argument("--default-view", default="both", choices=["zh", "both", "orig"])
-    ap.add_argument("--css", help="額外指定 CSS 檔（否則用第一個 section 的 <style>）")
+    ap.add_argument("--css", help="附加自訂 CSS 檔（接在正典樣式之後，可覆寫）")
     ap.add_argument("--meta", help="書目資訊 header 片段（預設自動找 build/meta.html）")
     ap.add_argument("--no-credit", action="store_true", help="不加頁尾工具出處")
     args = ap.parse_args()
@@ -211,23 +296,26 @@ def main():
     else:
         print(f"書目 header：無（可建 {build_dir}/meta.html 補上作者/出版/DOI 等）")
 
-    base_css = ""
     all_sections = []
     for f in files:
         raw = f.read_text(encoding="utf-8")
-        if not base_css:
-            base_css = extract_css(raw)
         secs = extract_sections(raw)
         if not secs:
             print(f"  ⚠ {f.name}: 沒找到 <section class=\"sec\">，略過")
         all_sections.extend(secs)
     print(f"合併 {len(files)} 檔、{len(all_sections)} 個 section")
 
+    # 正典樣式由 combine 擁有（BASE + LAYOUT），不再依賴 sec01 的 <style>，
+    # 確保任何元件（詩歌/圖/公式/摘要）不論出現在哪一節都有樣式。
+    # --css 指定的檔案會「附加」在最後，可覆寫或補充。
+    css = BASE_CSS + "\n" + LAYOUT_CSS
     if args.css:
-        base_css = Path(args.css).read_text(encoding="utf-8")
+        css += "\n/* --- 自訂 CSS --- */\n" + Path(args.css).read_text(encoding="utf-8")
 
     body_html = "\n\n".join(all_sections)
     body_html, toc = build_toc(body_html)
+    # #5 給原文欄補 lang="en"（利於斷字、螢幕閱讀器、回溯）；已有 lang 的略過
+    body_html = re.sub(r'<div class="orig"(?![^>]*\blang=)', '<div class="orig" lang="en"', body_html)
 
     full = f"""<!DOCTYPE html>
 <html lang="zh-Hant">
@@ -236,8 +324,7 @@ def main():
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{args.title}</title>
 <style>
-{base_css}
-{LAYOUT_CSS}
+{css}
 </style>
 </head>
 <body data-default-view="{args.default_view}">
