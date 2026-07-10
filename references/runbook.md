@@ -14,11 +14,14 @@
 硬規則：所有中文譯文必須由你自己逐段翻譯。絕對禁止呼叫 Google Translate、DeepL、
 任何機器翻譯工具，或另開 LLM API 代翻，也不可把整段丟工具再貼回。若你覺得 context
 不夠，就一次只翻一節、寫進 secNN.html 再繼續——不要外包翻譯。唯一可用外部工具的時機
-是用搜尋查術語標準譯法。動工前先確認你理解這條。
+是用搜尋查術語標準譯法。另外，長章節不可濃縮成摘要交差，必須逐段全譯；每章翻完
+立刻跑 python scripts/check_translation.py build/secNN.html --min-page N1 --max-page N2，
+FAIL 就打回重譯該章，通過才可以進下一章。動工前先確認你理解以上規則。
 ```
 
 > 實務：跑的時候瞄一眼它的 tool calls；看到它要接 translation API / MT 套件 / 開子模型
-> 翻譯就中止並重貼上框。第一節翻完先抽查（術語、語域、頁碼對位對不對），穩了再放手。
+> 翻譯就中止並重貼上框。**check_translation.py 是客觀關卡，不是建議**——它 FAIL 時
+> 不要接受「已經很接近了」之類的說法，堅持打回重譯到通過為止。
 
 ## 0. 前置
 
@@ -91,6 +94,24 @@ python scripts/extract_structure.py "TARGET.pdf" --offset N --out build/source.t
 **翻譯規則見 `methodology.md`**（依文本類型選語域：技術論文求精確；哲學/人文論說文求
 思辨流暢）。術語一致性靠 `glossary.md`（見 `glossary-guide.md`），**先建詞庫再翻**。
 
+## 4.5 每章翻完立刻跑品質關卡（強制，不可跳過）
+
+> 這一步存在的理由：長章節（如 60+ 頁）容易被悄悄濃縮成幾段摘要交差——一本書實測
+> 真的發生過（60 頁章節只給 9 段）。不要等全書合併完才用肉眼抓，**每章翻完當場跑**：
+
+```bash
+python scripts/check_translation.py build/secNN.html --min-page <該章起始書頁> --max-page <該章結束書頁>
+```
+
+- ❌ **FAIL**（退出碼非 0）：**打回重譯該章**，修完再跑一次，直到通過才能進下一章。
+  常見 FAIL 原因：段落數相對頁數過低（抽稿／濃縮摘要）、大量 `.para` 缺 `.orig`、
+  頁碼跳號過多或逆行、結尾頁碼早於預期（未譯完）。
+- ⚠️ **WARN**：人工抽查判斷是否可接受（例如原書本身有跨頁插圖造成的頁碼小跳號）。
+- 若懷疑有簡體字混入但預設模式沒抓到，可加 `--use-opencc` 做更廣（但較吵、需人工複核）的補充掃描。
+
+全書譯完，對合併後的 `out/成品.html` 再跑一次同一支腳本（不必給 `--min-page/--max-page`），
+確認整體一致。
+
 ## 5. 圖表 / 公式（若有）
 
 ```bash
@@ -120,11 +141,10 @@ python scripts/export_docx.py --build build --out "out/成品_對照.docx"   --v
 
 ## 每節交付檢查
 
+- [ ] `python scripts/check_translation.py build/secNN.html` **通過（exit 0）**——
+      涵蓋抽稿/缺原文/頁碼連續三項自動檢查，取代下面手動勾選的對應項目
 - [ ] `build/meta.html` 書目 header 已建（作者/單位/出處/年份/DOI/ISBN）
-- [ ] `.para/.zh/.orig` 結構完整，三態切換能運作
-- [ ] 換頁 `pgmark` **逐頁連續、無跳號**（放在該頁內容開始處）
 - [ ] 譯文由**執行的模型親自逐段翻譯**，未呼叫任何機器翻譯工具/API 代翻
-- [ ] 換頁 `pgmark` 標記齊全，可回查原書頁碼
 - [ ] 術語與 `glossary.md` 一致（無同詞多譯）
 - [ ] 數字、專有名詞、引用標記無誤；參考文獻原樣未翻
 - [ ] 抽幾段開「中英對照」比對原文，無漏譯、無誤植

@@ -9,8 +9,10 @@
 都能照 [`references/runbook.md`](references/runbook.md) 獨立跑完。
 
 > ⚠️ **硬規則：譯文必須由執行的模型親自逐段翻譯，禁止外包給機器翻譯 API/工具。**
-> 部分 coding agent 會為「效率」偷接 MT 服務或另開 LLM 代翻，會摧毀術語一致性與品質。
-> 交接時請一併貼上 [`runbook.md` 的「交接強化句」](references/runbook.md) 在 prompt 層再壓一次。
+> 部分 coding agent 會為「效率」偷接 MT 服務或另開 LLM 代翻，也會在長章節上悄悄
+> 濃縮成摘要交差（實測真的發生過：60 頁章節只給 9 段）。交接時請一併貼上
+> [`runbook.md` 的「交接強化句」](references/runbook.md)，並在**每章翻完後強制跑**
+> `scripts/check_translation.py` 品質關卡，FAIL 就打回重譯，不要靠事後肉眼複查整本。
 
 ## 特色
 
@@ -22,6 +24,7 @@
 - **書目 header**：論文（作者/單位/期刊·卷期/DOI）與專著（出版社/出版地/版次/ISBN）皆可。
 - **三態檢視**：一份 HTML，純中 / 對照 / 純原文即時切換；內建列印樣式。
 - **多格式輸出**：自包含 HTML 為主，另可選擇輸出 Word `.docx`（純中 / 對照 / 純原文）。
+- **品質關卡**：每章翻完自動檢查抽稿／缺原文對照／頁碼跳號逆行／簡體字混入，不合格擋下重譯。
 
 ## 快速開始
 
@@ -33,6 +36,8 @@ python scripts/inspect_pdf.py "TARGET.pdf"
 
 # 2) 依 references/runbook.md 逐段翻成 build/secNN.html（翻譯單位是「段落」）
 #    書目寫成 build/meta.html
+#    每章翻完立刻跑品質關卡（強制）：
+python scripts/check_translation.py build/secNN.html --min-page N1 --max-page N2
 
 # 3) 合併成單一 HTML（建議輸出到 out/，與 build/ 分開）
 python scripts/combine_paper.py --build build --out "out/成品_中譯.html" --default-view both
@@ -53,7 +58,7 @@ references/
   glossary-guide.md       詞庫建立與標準譯法查證
   css-template.md         HTML 結構、書目 header、對照/圖/公式模板
   pipeline-notes.md       腳本原理、A/B/C 判定、雙欄與圖表調參
-scripts/                  7 支 PyMuPDF 腳本（偵察 / 抽文 / 渲染 / 圖表 / 公式 / 合併）
+scripts/                  8 支腳本（偵察 / 抽文 / 渲染 / 品質關卡 / 圖表 / 公式 / 合併 / docx）
 ```
 
 ## 目標語言

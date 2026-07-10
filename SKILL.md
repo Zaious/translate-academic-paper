@@ -158,6 +158,16 @@ python scripts/extract_structure.py paper.pdf --offset 0 --out build/source.txt
 - 被動語態轉中文主動或無主句，別硬翻「被…」。
 - 用詞照 Phase 0 詞庫，不重新決定。
 
+### Phase 2.5：每章翻完立刻跑品質關卡（強制）
+
+```bash
+python scripts/check_translation.py build/secNN.html --min-page N1 --max-page N2
+```
+
+實測抓過真的失敗案例：長章節被悄悄濃縮成幾段摘要交差（60 頁章節只給 9 段）。
+**不要等全書合併完才靠肉眼抓，每章翻完當場跑這個腳本**，一併查抽稿／缺原文對照／
+頁碼跳號逆行／簡體字混入四項。❌ FAIL 就打回重譯該章，通過才進下一章。詳見 runbook.md §4.5。
+
 ---
 
 ## Phase 3：圖表擷取
@@ -234,6 +244,7 @@ python scripts/export_docx.py --build build --out "out/論文_對照.docx" --vie
 - [ ] 寫 `build/meta.html` 書目 header（作者/單位/出處/年份/DOI/ISBN）
 - [ ] extract_structure 取乾淨原文（A/B）
 - [ ] 逐節翻成 sec*.html（用 .para/.zh/.orig 結構）
+- [ ] **每章翻完跑 check_translation.py，FAIL 就打回重譯，通過才繼續**
 - [ ] place_figures --dry-run 眼睛確認 → --inject
 - [ ] render_equations --auto/--manual 內嵌公式
 - [ ] combine_paper 合併，開三態切換抽查
@@ -245,6 +256,7 @@ python scripts/export_docx.py --build build --out "out/論文_對照.docx" --vie
 | `inspect_pdf.py` | Phase 1：A/B/C 分類、欄數、字型、圖表/公式/文獻偵測 |
 | `render_pages.py` | Phase 1.5：整頁渲染（掃描檔看圖直譯 / 內嵌原頁）|
 | `extract_structure.py` | Phase 2：欄位還原、閱讀順序正確的原文 + 結構標記 |
+| `check_translation.py` | **Phase 2.5（強制）**：品質關卡——抽稿/缺原文/跳頁/簡體字，FAIL 即退出碼 1 |
 | `place_figures.py` | Phase 3：caption 錨點擷取圖表並注入 |
 | `render_equations.py` | Phase 4：編號/手動公式原圖截圖內嵌 |
 | `combine_paper.py` | Phase 5：合併 + 三態檢視切換 + TOC + 列印樣式（內建正典 CSS）|
