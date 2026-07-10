@@ -3,6 +3,23 @@
 這份手冊讓**任何具備檔案操作與執行 shell 能力的 agent**（Claude、Gemini、GPT、本地模型，
 搭配 Cursor / Cline / Aider / 各家 CLI）都能獨立跑完整個流程，不依賴特定廠商。
 
+## 交接強化句（把這段直接貼進你給執行 agent 的指令）
+
+> 部分 agent（Codex/GPT、Antigravity/Gemini）會為了「效率」偷偷去接機器翻譯 API 或
+> 另開 LLM 代翻，尤其在它覺得 context 不夠時。文件雖已明令禁止，但交接時在 prompt 層
+> 再壓一次最保險。**複製下框：**
+
+```text
+翻譯這份 PDF 請讀 translate-academic-paper/SKILL.md 並嚴格遵守。
+硬規則：所有中文譯文必須由你自己逐段翻譯。絕對禁止呼叫 Google Translate、DeepL、
+任何機器翻譯工具，或另開 LLM API 代翻，也不可把整段丟工具再貼回。若你覺得 context
+不夠，就一次只翻一節、寫進 secNN.html 再繼續——不要外包翻譯。唯一可用外部工具的時機
+是用搜尋查術語標準譯法。動工前先確認你理解這條。
+```
+
+> 實務：跑的時候瞄一眼它的 tool calls；看到它要接 translation API / MT 套件 / 開子模型
+> 翻譯就中止並重貼上框。第一節翻完先抽查（術語、語域、頁碼對位對不對），穩了再放手。
+
 ## 0. 前置
 
 ```bash

@@ -8,6 +8,10 @@
 執行 shell 的 agent（Claude / Gemini / GPT / 本地模型，搭配 Cursor / Cline / Aider / 各家 CLI）
 都能照 [`references/runbook.md`](references/runbook.md) 獨立跑完。
 
+> ⚠️ **硬規則：譯文必須由執行的模型親自逐段翻譯，禁止外包給機器翻譯 API/工具。**
+> 部分 coding agent 會為「效率」偷接 MT 服務或另開 LLM 代翻，會摧毀術語一致性與品質。
+> 交接時請一併貼上 [`runbook.md` 的「交接強化句」](references/runbook.md) 在 prompt 層再壓一次。
+
 ## 特色
 
 - **文件分類 A/B/C**：原生電子檔 / 已 OCR 掃描檔 / 無文字層掃描檔，自動判定並分流處理。
