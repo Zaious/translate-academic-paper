@@ -52,6 +52,12 @@ python scripts/extract_structure.py "TARGET.pdf" --offset N --out build/source.t
 
 ## 4. 逐段翻譯 → 寫成 build/secNN.html
 
+> 🚫 **硬規則：翻譯由你（執行的模型）親自產出，禁止外包給機器翻譯。**
+> 不得呼叫 Google Translate / DeepL / MT 函式庫 / 另開 LLM API 代翻，不得把整段丟工具再貼回。
+> **「context 不夠」不是理由**——這一步本來就一次只做一節：翻完一節寫進 `secNN.html`、
+> 釋放 context 再做下一節，永遠不需要一次裝下整本書。唯一可呼叫外部工具的是 Phase 0
+> 用 WebSearch 查術語標準譯法（查證，非代翻）。違反即任務失敗，須重譯。
+
 **翻譯單位是「段落」，不是「頁」**（作者的段落常跨頁；按頁切會截斷論證）。
 頁碼用行內標記保留：段落中間遇換頁就插 `<div class="pgmark">原書 p.6</div>`。
 
@@ -100,6 +106,7 @@ python scripts/export_docx.py --build build --out "out/成品_對照.docx"   --v
 - [ ] `build/meta.html` 書目 header 已建（作者/單位/出處/年份/DOI/ISBN）
 - [ ] `.para/.zh/.orig` 結構完整，三態切換能運作
 - [ ] 換頁 `pgmark` **逐頁連續、無跳號**（放在該頁內容開始處）
+- [ ] 譯文由**執行的模型親自逐段翻譯**，未呼叫任何機器翻譯工具/API 代翻
 - [ ] 換頁 `pgmark` 標記齊全，可回查原書頁碼
 - [ ] 術語與 `glossary.md` 一致（無同詞多譯）
 - [ ] 數字、專有名詞、引用標記無誤；參考文獻原樣未翻
