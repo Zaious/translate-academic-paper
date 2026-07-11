@@ -1,11 +1,16 @@
 """
 check_translation.py — 譯稿品質關卡（每章翻完後跑一次，不合格打回重譯）
 
-用真本書《Spencer, Education》驗過的四個實際病灶都在查：
+用真本書《Spencer, Education》驗過的六個實際病灶都在查：
   1. 抽稿／濃縮：段落數相對頁數過低（原本 60 頁的章節只給 9 段，就是這樣被抓到的）
   2. 缺原文對照：.para 裡有 .zh 卻沒有 .orig（或 .orig 是空的）
   3. 頁碼跳號／缺頁／逆行：<div class="pgmark"> 應逐頁連續，不可跳號
-  4. 簡體字混入：預設用精選高信心字表（只收絕對是簡體字、無異體字爭議的字），
+  4. 頁界腰斬句子：某段 .orig 結尾非終止標點、下一段開頭卻是小寫字母，代表同一句
+     被硬切成兩個 .para——這是「逐頁批次翻譯」（每頁一個 API 呼叫，段落單位錯用
+     成頁面單位）的典型症狀，實測真書抓到近半數段落中招，比抽稿更隱蔽也更常見。
+  5. 英文連接詞洩漏：中文譯文裡混進未翻譯的 " and "/" the "/" of " 等——實測抓到
+     過「大學 and 學校」這種殘留，通常是批次翻譯漏翻某個子句造成的。
+  6. 簡體字混入：預設用精選高信心字表（只收絕對是簡體字、無異體字爭議的字），
      零假警報但涵蓋不到罕見簡體字。想要更廣的偵測可加 --use-opencc，改用
      OpenCC 逐字元比對（涵蓋更廣，但依上下文詞頻可能誤判合法異體字/專有名詞
      為簡體字，如 布/佈、系/係、面/靣、干/幹、夸/誇——出現時請人工判斷）。
@@ -56,8 +61,24 @@ PLACEHOLDER_MARKERS = ("TODO", "TBD", "[待譯]", "(untranslated)", "待翻譯",
 BLOCK_RE = re.compile(
     r'<div class="pgmark"[^>]*>(?P<pg>.*?)</div>'
     r'|<div class="para"[^>]*>(?P<para>.*?)'
-    r'(?=<div class="para"|<div class="pgmark"|<h1|<h2|<h3|<figure|<div class="poem"|</section>|\Z)',
+    r'(?=<div class="para"|<div class="pgmark"|<h1|<h2|<h3|<figure|<div class="poem"|</section>|\Z)'
+    r'|(?P<other><figure[^>]*>|<div class="poem"[^>]*>|<h1|<h2|<h3)',
     re.DOTALL)
+
+# 段落被「頁界」腰斬的判定：.orig 結尾不是終止標點，且緊接著的下一段 .orig
+# 開頭是小寫字母 —— 這是英文句子被硬生生切成兩截最可靠的訊號（合法的非終止結尾，
+# 如引言前的冒號 "...old song:—"，下一段開頭一定是大寫或引號，不會被誤判）。
+_TERM_PUNCT = ('.', '?', '!', '"', '”', '’', '」', '』', ':', ';', ')', '）')
+
+
+def _ends_midsentence(orig_text):
+    t = orig_text.rstrip()
+    return bool(t) and not t.endswith(_TERM_PUNCT)
+
+
+def _starts_lowercase(orig_text):
+    m = re.search(r'[A-Za-z]', orig_text.lstrip())
+    return bool(m) and m.group().islower()
 
 
 def strip_tags(html):
@@ -71,19 +92,30 @@ def first_div(html, cls):
 
 
 def scan_section(sec_html):
-    """回傳 events：[('page', n), ('para', zh_raw, orig_raw_or_None), ...] 依文件順序。"""
+    """回傳 events：[('page', n), ('para', zh_raw, orig_raw_or_None), ('other', None), ...]
+    依文件順序。'other' 標記詩歌/圖/標題等非 para 內容的出現位置，供「頁界腰斬句子」
+    判定用來確認兩個 para 是否真的緊鄰（中間沒有隔著詩歌或圖表）。"""
     events = []
     for m in BLOCK_RE.finditer(sec_html):
         if m.group('pg') is not None:
-            num = re.search(r'\d+', m.group('pg'))
-            if num:
-                events.append(('page', int(num.group())))
+            # 支援頁碼範圍標記「p.89–92」：範圍內每一頁都展開為 page 事件
+            # （B2 units 轉出的跨頁段落會產生 p.177–179 這類三頁以上範圍，
+            #   只發起訖兩點會被誤判成中間跳號）。
+            nums = [int(n) for n in re.findall(r'\d+', m.group('pg'))]
+            if len(nums) == 2 and nums[0] < nums[1] <= nums[0] + 50:
+                for n in range(nums[0], nums[1] + 1):
+                    events.append(('page', n))
+            else:
+                for n in nums:
+                    events.append(('page', n))
         elif m.group('para') is not None:
             body = m.group('para')
             zh = first_div(body, 'zh')
             orig = first_div(body, 'orig')
             if zh is not None:
                 events.append(('para', zh, orig))
+        elif m.group('other') is not None:
+            events.append(('other', None))
     return events
 
 
@@ -145,6 +177,28 @@ def check_placeholders(paras):
     return issues
 
 
+# 英文連接詞/介系詞直接洩漏進中文譯文（未翻譯就原樣留著），實測真書抓到過
+# "大學 and 學校"這種殘留。<span class="en">術語附註</span>是合法用法，比對前先剔除。
+_LEAK_WORDS = (' and ', ' the ', ' of ', ' or ', ' with ', ' which ', ' that ')
+
+
+def check_leaked_english(paras):
+    issues, examples = [], []
+    n = 0
+    for zh, orig in paras:
+        zh_no_en = re.sub(r'<span class="en">.*?</span>', '', zh, flags=re.DOTALL)
+        zh_txt = strip_tags(zh_no_en)
+        for w in _LEAK_WORDS:
+            for m in re.finditer(re.escape(w), zh_txt):
+                n += 1
+                if len(examples) < 8:
+                    i = m.start()
+                    examples.append(f'…{zh_txt[max(0,i-12):i+12]}…')
+    if n:
+        issues.append(('FAIL', f'偵測到 {n} 處英文連接詞/介系詞直接洩漏進中文譯文（未翻譯就原樣留著）'))
+    return issues, examples
+
+
 def _find_examples(all_zh, chars_found, cap=15):
     examples = []
     for ch in sorted(chars_found)[:cap]:
@@ -191,6 +245,36 @@ def check_simplified(paras, use_opencc=False):
     return issues, examples
 
 
+def check_pagesplit(events, fail_frac=0.05):
+    """偵測段落被「頁界」腰斬：某段 .orig 結尾非終止標點，且緊鄰（中間沒有隔詩歌/圖/
+    標題）的下一段 .orig 開頭是小寫字母——這是英文句子被硬生生切成兩個 .para 最可靠的
+    訊號（合法的非終止結尾，如引言前的「...old song:—」，下一段一定是大寫/引號開頭，
+    不會被這個組合條件誤判）。真實案例：逐頁批次翻譯會把每一頁包成一個 .para，句子
+    跨頁就被腰斬——這是本檢查存在的直接原因。"""
+    para_events = [(i, e) for i, e in enumerate(events) if e[0] == 'para']
+    cut_pairs = []
+    for k in range(len(para_events) - 1):
+        i, cur = para_events[k]
+        j, nxt = para_events[k + 1]
+        if any(events[x][0] == 'other' for x in range(i + 1, j)):
+            continue  # 中間隔著詩歌/圖/標題，不是真的緊鄰段落
+        cur_orig = strip_tags(cur[2]) if cur[2] else ''
+        nxt_orig = strip_tags(nxt[2]) if nxt[2] else ''
+        if cur_orig and nxt_orig and _ends_midsentence(cur_orig) and _starts_lowercase(nxt_orig):
+            cut_pairs.append((cur_orig[-50:], nxt_orig[:50]))
+
+    total = len(para_events)
+    if not cut_pairs or not total:
+        return [], []
+    frac = len(cut_pairs) / total
+    level = 'FAIL' if frac > fail_frac else 'WARN'
+    issue = (level, f'疑似段落被頁界腰斬（同一句被硬切成兩個 .para）：'
+                     f'{len(cut_pairs)}/{total} 處交界（{frac*100:.0f}%）——'
+                     f'常見於逐頁批次翻譯，違反「翻譯單位是段落不是頁」的硬規則')
+    examples = [f'…{a} ‖ {b}…' for a, b in cut_pairs[:6]]
+    return [issue], examples
+
+
 def report_section(sec_id, sec_html, args):
     events = scan_section(sec_html)
     paras = [(e[1], e[2]) for e in events if e[0] == 'para']
@@ -202,6 +286,10 @@ def report_section(sec_id, sec_html, args):
     orig_issues, orig_samples = check_orig_coverage(paras, args.orig_fail_pct)
     all_issues += orig_issues
     all_issues += check_placeholders(paras)
+    split_issues, split_examples = check_pagesplit(events)
+    all_issues += split_issues
+    leak_issues, leak_examples = check_leaked_english(paras)
+    all_issues += leak_issues
     simp_issues, simp_examples = check_simplified(paras, use_opencc=args.use_opencc)
     if args.strict:
         simp_issues = [('FAIL', m) if lvl == 'WARN' else (lvl, m) for lvl, m in simp_issues]
@@ -222,6 +310,14 @@ def report_section(sec_id, sec_html, args):
         print("  缺原文的段落樣本：")
         for s in orig_samples:
             print(f"    · {s}…")
+    if split_examples:
+        print("  頁界腰斬句子樣本（‖ 標記兩個 .para 的交界）：")
+        for s in split_examples:
+            print(f"    · {s}")
+    if leak_examples:
+        print("  英文連接詞洩漏樣本：")
+        for s in leak_examples:
+            print(f"    · {s}")
     if simp_examples:
         print("  簡體字出現位置樣本：")
         for s in simp_examples:
@@ -233,7 +329,7 @@ def report_section(sec_id, sec_html, args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="譯稿品質關卡：抽稿/缺原文/跳頁/簡體字")
+    ap = argparse.ArgumentParser(description="譯稿品質關卡：抽稿/缺原文/跳頁/頁界腰斬句子/簡體字")
     ap.add_argument("files", nargs="+", help="build/secNN.html 或合併後的 out/*.html（可多檔/萬用字元）")
     ap.add_argument("--min-page", type=int, help="預期起始書頁（不足視為缺頭）")
     ap.add_argument("--max-page", type=int, help="預期結束書頁（不足視為缺尾/未譯完）")

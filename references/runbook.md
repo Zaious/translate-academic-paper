@@ -164,3 +164,97 @@ python scripts/export_docx.py --build build --out "out/成品_對照.docx"   --v
 
 > 實務建議：規則設計、偵察、腳本除錯可在任一模型做；若某模型對特定史料反覆誤擋，
 > 把「逐段翻譯」這一步交給不會誤判的模型執行，其餘步驟不受影響。
+
+---
+
+## §B2 髒掃描批次流程（B2 類專用完整操作）
+
+> 適用：19 世紀老書、手寫批註、OCR 錯誤 >3 處/頁的掃描檔。
+> 實戰驗證：Spencer《Education》(1894)——OCR 直翻曾造成整章損毀，本流程即其修正。
+
+### 核心原則（一行記住）
+
+```
+頁面圖 = 證據   OCR = 定位器   乾淨原文 = 看圖校訂的轉錄   中文 = 逐段親譯
+```
+
+OCR 可輔助快速定位行文，**不得直接進 orig、更不得驅動翻譯**。
+
+### 分層目錄（每層獨立產物，成品只能由 units 生成）
+
+```
+project/
+├─ 00_source/          原 PDF、glossary、skill 快照、hash
+├─ 01_pages/           整頁渲染圖 pNNN.png（NNN = PDF index）
+├─ 02_page_map/        page_map.json：PDF index ↔ 書頁碼 ↔ 章節（⚠️ 用書底印刷頁碼核對，防 off-by-one）
+├─ 03_english_clean/   看圖校訂後的乾淨原文（修正清單 or 全文轉錄）
+├─ 04_translation_units/  secNN_pXXX_pYYY_batchNN.units.json（正典資料）
+├─ 05_outputs/         HTML/DOCX（只從 units 生成，不得手改 HTML 當正本）
+└─ 06_qa_reports/      每批 QA 結果
+```
+
+### 批次規則（常態，不是例外）
+
+- **~10 頁一批**；邊界**必以完整段落收口**——目標範圍 p.94–103，若尾段跨到 p.104 就跟到段尾，下一批從下個完整段落開始。
+- 每批 JSON 記 `coverage: {full_pages: [...], partial_pages: [...]}`——
+  **邊界頁只覆蓋部分段落必須誠實記 partial**，QA 據此驗批次接縫（前批尾段＋本批首段無縫）。
+- **每批 QA 通過才進下一批**。batch 是檢查點：壞了重做一批，不會壞整章。
+
+### units JSON schema（正典資料層）
+
+```json
+{
+  "section_id": "sec02",
+  "title_en": "...", "title_zh": "...",
+  "source": {"pdf_index": "93-102", "book_pages": "94-103", "images": "01_pages/p093.png-p102.png"},
+  "coverage": {"full_pages": [94,95,...], "partial_pages": [], "notes": {}},
+  "status": "draft",
+  "units": [
+    {"id": "sec02-p094-001", "type": "paragraph", "pages": [94,95],
+     "orig": "看圖校訂過的乾淨英文。", "zh": "親手翻譯的繁體中文。"}
+  ]
+}
+```
+
+`type` 允許值與規則：
+- `paragraph`：一般段落。跨頁段落一個 unit，`pages` 記實際跨頁。
+- `footnote`：**跨頁腳註合併為單一 unit**，緊跟其出處段落之後（非頁面順序）。
+- `heading` / `epigraph` / `caption`：標題／題詩（行間用 ` / ` 分隔）／圖說。
+- **手寫批註、圈線、邊註一律不進 orig**——前任讀者的痕跡不是原文。
+
+### 乾淨原文：修正清單模式（推薦）
+
+不重打全文，讓模型只輸出 OCR 底稿的**差異**：
+
+```
+[p.25]
+FIX: Hving consciousness => living consciousness     ← 錯字修正
+DEL: EDUOA.TION.                                     ← 頁眉殘渣
+PARA: This, however, is by no means                  ← 段落起點（OCR 丟失縮排）
+TAIL: <錨點> => <整段替換文字>                        ← 批註毀損區：錨點後到頁尾整段重寫
+HEAD: <錨點> => <整段替換文字>                        ← 頁首到錨點前整段重寫
+```
+
+好處：① 省 token ② 修正可審計、可重放 ③ **避開代管 API 對「大量輸出書籍原文」
+的過濾器誤判**（模型輸出的是 diff，不是成篇原文）。
+腳本套用修正 → 拼頁 → 按 PARA 切段 → 標 `[p.N]`／`[p.N–M]` 頁碼。
+跨頁連字複合詞（如 `mechanically-` + `justified`）注意：接頁去連字號邏輯會誤拼，
+遇到時把完整複合詞寫進前頁的 FIX。
+
+### 轉 HTML 與後續
+
+```bash
+python scripts/units_to_section.py 04_translation_units/sec02_*.units.json --out build/sec02.html
+python scripts/check_translation.py build/sec02.html --min-page 94 --max-page 168
+# 之後與 A/B1 共用：combine_paper.py / export_docx.py / export_txt.py
+```
+
+### 每批 QA 清單
+
+- [ ] JSON valid；每 unit 有非空 `orig`、`zh`、`pages`
+- [ ] 頁碼落在 page_map 章節範圍內；`full_pages` 被 units 完整覆蓋
+- [ ] 與**前一批**接縫無縫（前批尾段 + 本批首段）
+- [ ] 無簡體字、無 OCR 殘渣模式（`EDUOATION`、`\v`、`1'0` 等）
+- [ ] 段落數對照頁面圖 plausible，無可疑壓縮、無佔位文字
+- [ ] 腳註齊全且緊跟出處段落
+- [ ] **人工抽查 2–3 段對圖**：QA 只保結構，語意忠實度必須抽檢
