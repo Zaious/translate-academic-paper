@@ -170,7 +170,13 @@ python scripts/extract_structure.py paper.pdf --offset 0 --out build/source.txt
 
 ```bash
 python scripts/check_translation.py build/secNN.html --min-page N1 --max-page N2
+python scripts/check_fidelity.py   build/secNN.html   # 忠實度：數值/引用/長度比
 ```
+
+`check_translation.py` 保**結構**（抽稿/缺原文/跳頁/腰斬句/簡體字）；
+`check_fidelity.py` 補**內容忠實的客觀部分**——逐段比對 zh vs orig 的數值、引用標記
+掉落與長度比離群，圈出疑似幻覺（漏譯/捏造/改寫）供人優先複核。兩者皆為機器層，
+**語意錯譯（數字對、引用在、長度正常卻翻反意思）兩者都抓不到，仍須人工抽查對圖**。
 
 實測抓過真的失敗案例：長章節被悄悄濃縮成幾段摘要交差（60 頁章節只給 9 段）。
 **不要等全書合併完才靠肉眼抓，每章翻完當場跑這個腳本**，一併查抽稿／缺原文對照／
@@ -281,7 +287,7 @@ python scripts/export_txt.py --build build --out "out/論文_對照.txt" --view 
 - [ ] 寫 `build/meta.html` 書目 header（作者/單位/出處/年份/DOI/ISBN）
 - [ ] extract_structure 取乾淨原文（A/B）
 - [ ] 逐節翻成 sec*.html（用 .para/.zh/.orig 結構）
-- [ ] **每章翻完跑 check_translation.py，FAIL 就打回重譯，通過才繼續**
+- [ ] **每章翻完跑 check_translation.py（結構）＋ check_fidelity.py（忠實度），FAIL 打回重譯，fidelity 疑點對圖複核，通過才繼續**
 - [ ] place_figures --dry-run 眼睛確認 → --inject
 - [ ] render_equations --auto/--manual 內嵌公式
 - [ ] combine_paper 合併，開三態切換抽查
@@ -293,7 +299,8 @@ python scripts/export_txt.py --build build --out "out/論文_對照.txt" --view 
 | `inspect_pdf.py` | Phase 1：A/B/C 分類、欄數、字型、圖表/公式/文獻偵測 |
 | `render_pages.py` | Phase 1.5：整頁渲染（掃描檔看圖直譯 / 內嵌原頁）|
 | `extract_structure.py` | Phase 2：欄位還原、閱讀順序正確的原文 + 結構標記 |
-| `check_translation.py` | **Phase 2.5（強制）**：品質關卡——抽稿/缺原文/跳頁/簡體字，FAIL 即退出碼 1 |
+| `check_translation.py` | **Phase 2.5（強制）**：結構關卡——抽稿/缺原文/跳頁/腰斬句/簡體字，FAIL 即退出碼 1 |
+| `check_fidelity.py` | **Phase 2.5**：忠實度——數值/引用掉落、長度比離群，圈疑似幻覺供人複核 |
 | `units_to_section.py` | **Phase 2-B2**：translation units JSON → 標準 secNN.html |
 | `export_txt.py` | Phase 5（保底）：零依賴純文字對照輸出 |
 | `place_figures.py` | Phase 3：caption 錨點擷取圖表並注入 |

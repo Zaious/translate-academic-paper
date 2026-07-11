@@ -257,4 +257,5 @@ python scripts/check_translation.py build/sec02.html --min-page 94 --max-page 16
 - [ ] 無簡體字、無 OCR 殘渣模式（`EDUOATION`、`\v`、`1'0` 等）
 - [ ] 段落數對照頁面圖 plausible，無可疑壓縮、無佔位文字
 - [ ] 腳註齊全且緊跟出處段落
-- [ ] **人工抽查 2–3 段對圖**：QA 只保結構，語意忠實度必須抽檢
+- [ ] 跑 `check_fidelity.py`（單批 units 或轉出的 HTML 皆可）：數值/引用掉落、長度比離群 → 圈出的段落優先對圖看
+- [ ] **人工抽查 2–3 段對圖**：機器只圈客觀痕跡，語意錯譯（意思翻反）必須人眼抽檢
