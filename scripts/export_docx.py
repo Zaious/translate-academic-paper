@@ -85,7 +85,7 @@ BLOCK_RE = re.compile(
     r'|<h2[^>]*>(?P<h2>.*?)</h2>'
     r'|<h3[^>]*>(?P<h3>.*?)</h3>'
     r'|<div class="pgmark"[^>]*>(?P<pg>.*?)</div>'
-    r'|<div class="para"[^>]*>(?P<para>.*?)</div>\s*</div>'
+    r'|<div class="(?P<pcls>para[^"]*)"[^>]*>(?P<para>.*?)</div>\s*</div>'
     r'|<figure[^>]*>(?P<fig>.*?)</figure>'
     r'|<div class="poem"[^>]*>(?P<poem>.*?)</div>',
     re.DOTALL)
@@ -110,11 +110,22 @@ def render_section(doc, sec_html, view):
             full = '<div class="para">' + m.group('para') + '</div></div>'
             zh = inner(full, 'zh')
             orig = inner(full, 'orig')
+            # 依 class 變體調樣式（footnote 縮小、caption 置中、para poem 斜體詩）
+            pcls = m.group('pcls') or 'para'
+            z_size, o_size, z_italic, z_color, align2 = 11.5, 10.5, False, None, None
+            if 'footnote' in pcls:
+                z_size, o_size, z_color = 9.5, 9, GREY
+            elif 'caption' in pcls:
+                z_size, o_size, z_color = 9.5, 9, GREY
+                align2 = WD_ALIGN_PARAGRAPH.CENTER
+            elif 'poem' in pcls:
+                z_size, o_size, z_italic = 11, 10.5, True
             if view in ('zh', 'both') and zh:
-                add_para(doc, strip_tags(zh), size=11.5)
+                add_para(doc, strip_tags(zh), size=z_size, color=z_color,
+                         italic=z_italic, align=align2)
             if view in ('orig', 'both') and orig:
-                add_para(doc, strip_tags(orig), size=10.5, color=GREY, italic=True,
-                         space_after=12 if view == 'both' else 8)
+                add_para(doc, strip_tags(orig), size=o_size, color=GREY, italic=True,
+                         align=align2, space_after=12 if view == 'both' else 8)
         elif m.group('fig') is not None:
             figu = m.group('fig')
             src = re.search(r'src="(data:image[^"]+)"', figu)
