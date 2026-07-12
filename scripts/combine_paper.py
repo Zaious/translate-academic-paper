@@ -80,6 +80,16 @@ BASE_CSS = """
 
   .para { margin:0 0 18px; }
 
+  /* 腳註（type=footnote；緊跟其出處段落，較正文小、灰階、左細線）*/
+  .para.footnote { font-size:.88em; color:#5a5750; border-left:2px solid var(--rule);
+    padding-left:14px; margin-top:-6px; }
+  .para.footnote .orig { font-style:normal; }
+  body.view-both .para.footnote { padding-left:0; border-left:none; }
+  body.view-both .para.footnote .zh { border-left:2px solid var(--rule); padding-left:14px; }
+
+  /* 獨立圖說 / 說明（type=caption）*/
+  .para.caption { font-size:.9em; color:var(--muted); text-align:center; }
+
   /* 換頁標記：置於「該頁內容開始處」，逐頁不跳號 */
   .pgmark { display:block; text-align:center; color:var(--muted);
     font-family:"Noto Sans TC",sans-serif; font-size:11.5px; letter-spacing:.22em;

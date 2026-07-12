@@ -79,3 +79,26 @@ pip install pymupdf pillow
 ```
 
 Pillow 目前非必需（本版腳本未用到白度計算），但保留以備擴充。PyMuPDF 是核心。
+
+## 輸出樣式回歸樣本（改 CSS / 加 type 前後必看）
+
+輸出 template 的「單一真相」是 `combine_paper.py` 的 `BASE_CSS + LAYOUT_CSS`——
+section 檔**不該自帶元件樣式**，agent 也**不該每次手動微調成品 CSS**。若你發現某元件
+（腳註/圖說/題詩/頁碼標記…）渲染不對，正解是**補進 BASE_CSS**，不是改單一成品。
+
+根因通常是：`units_to_section.py` 產出了某個 class（如 `.para.footnote`、`.para.caption`），
+但 BASE_CSS 沒有對應樣式 → 該元件吃到 `.para` 預設、跟正文沒區分。這種「孤兒 class」
+就是「每次都要微調」的來源。
+
+`tests/template_sample.units.json` 是一份**涵蓋全部 type**的樣本
+（heading / paragraph / epigraph / footnote / caption / 跨頁 pgmark / 術語附原文）。
+改動 CSS 或新增 unit type 後，跑一遍對照截圖確認每個元件都有樣式：
+
+```bash
+python scripts/units_to_section.py tests/template_sample.units.json --out /tmp/t/build/sec01.html
+python scripts/combine_paper.py --build /tmp/t/build --out /tmp/t/all.html --default-view both --no-credit
+# 用瀏覽器（或 headless 截圖）逐一比對：docs/template_all_elements.png 是基準樣貌
+```
+
+三態（純中/對照/純原文）都要掃一遍——`.orig`/`.zh` 顯隱由 view class 控制，
+元件本身的字級/顏色/縮排則與 view 無關，兩者都不該破。
