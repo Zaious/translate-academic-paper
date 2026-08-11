@@ -1,3 +1,5 @@
+
+
 # translate-academic-paper
 
 把**學術論文或人文專著的 PDF**，翻譯成一份**單一自包含的 HTML**——頂部可切換
@@ -115,9 +117,10 @@ python scripts/inspect_pdf.py "TARGET.pdf"
 
 # 2) 依 references/runbook.md 逐段翻成 build/secNN.html（翻譯單位是「段落」）
 #    髒掃描（B2）走批次 units 流程，見 runbook §B2；書目寫成 build/meta.html
-#    每章翻完立刻跑雙層品質關卡（強制）：
+#    每章/每批翻完立刻跑品質關卡（強制）：
 python scripts/check_translation.py build/secNN.html --min-page N1 --max-page N2  # 結構
 python scripts/check_fidelity.py   build/secNN.html                              # 忠實度
+python scripts/check_units.py    build/secNN.units.json  # B2 批次單位 QA（僅髒掃描流程）
 
 # 3) 合併成單一 HTML（建議輸出到 out/，與 build/ 分開）
 python scripts/combine_paper.py --build build --out "out/成品_中譯.html" --default-view both
